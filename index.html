@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<link rel="stylesheet" href="style.css">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Game</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; }
+        .screen { display: none; height: 100vh; width: 100vw; background-size: cover; background-position: center; color: white; }
+        .active { display: block; }
+        h1 { margin-top: 20px; }
+        #enemy-container { position: relative; text-align: center; margin-top: 50px; }
+        #enemy { width: 150px; }
+        .health-bar { width: 200px; height: 20px; background: red; margin: auto; border-radius: 10px; }
+        .health-bar div { height: 100%; background: green; width: 100%; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div id="start-screen" class="screen active" style="background-image: url('start-bg.jpg');">
+        <h1>Pomodoro Game</h1>
+        <button onclick="showScreen('tasks-screen')">Ir a Tareas</button>
+        <button onclick="showScreen('battle-screen')">Ir a Batalla</button>
+        <p>Puntos de ataque: <span id="points">0</span></p>
+    </div>
+
+    <div id="tasks-screen" class="screen" style="background-image: url('tasks-bg.jpg');">
+        <h1>Lista de Tareas</h1>
+        <input type="text" id="taskInput" placeholder="Nueva tarea">
+        <button onclick="addTask()">Agregar</button>
+        <ul id="taskList"></ul>
+        <h2>Temporizador</h2>
+        <p id="timer">25:00</p>
+        <button onclick="startTimer()">Iniciar</button>
+        <button onclick="completeTask()">Finalizar Tarea</button>
+        <button onclick="showScreen('start-screen')">Volver</button>
+        <p>Puntos de ataque: <span id="points-tasks">0</span></p>
+    </div>
+
+    <div id="battle-screen" class="screen" style="background-image: url('goblin-bg.jpg');">
+        <h1>Batalla</h1>
+        <select id="enemySelect" onchange="selectEnemy()">
+            <option value="goblin">Goblin - Vida: 50</option>
+            <option value="ogro">Ogro - Vida: 100</option>
+            <option value="dragon">Dragón - Vida: 200</option>
+        </select>
+        <div id="enemy-container">
+            <img id="enemy" src="goblin.gif">
+            <div class="health-bar"><div id="health-bar-fill"></div></div>
+            <p>Vida: <span id="enemyHealth">50</span></p>
+        </div>
+        <p>Puntos de ataque: <span id="points-battle">0</span></p>
+        <button onclick="attackEnemy()">Atacar</button>
+        <button onclick="showScreen('start-screen')">Volver</button>
+    </div>
+
+    <audio id="deathSound" src="enemy_dead.mp3"></audio>
+
+    <script>
+        let tasks = [];
+        let timeLeft = 1500;
+        let timerActive = false;
+        let attackPoints = 0;
+        let enemyHealth = 50;
+        let timer;
+        let enemies = {
+            "goblin": { health: 50, image: "goblin.gif", bg: "goblin-bg.jpg" },
+            "ogro": { health: 100, image: "ogro.gif", bg: "ogro-bg.jpg" },
+            "dragon": { health: 200, image: "dragon.gif", bg: "dragon-bg.jpg" }
+        };
+
+        function showScreen(screenId) {
+            document.querySelectorAll(".screen").forEach(screen => screen.classList.remove("active"));
+            document.getElementById(screenId).classList.add("active");
+            updatePoints();
+        }
+
+        function addTask() {
+            let taskInput = document.getElementById("taskInput");
+            if (taskInput.value !== "") {
+                tasks.push(taskInput.value);
+                updateTaskList();
+                taskInput.value = "";
+            }
+        }
+
+        function updateTaskList() {
+            let taskList = document.getElementById("taskList");
+            taskList.innerHTML = "";
+            tasks.forEach((task, index) => {
+                taskList.innerHTML += `<li>${task} <button onclick="removeTask(${index})">❌</button></li>`;
+            });
+        }
+
+        function removeTask(index) {
+            tasks.splice(index, 1);
+            updateTaskList();
+        }
+
+        function startTimer() {
+            if (!timerActive && tasks.length > 0) {
+                timerActive = true;
+                timer = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        let minutes = Math.floor(timeLeft / 60);
+                        let seconds = timeLeft % 60;
+                        document.getElementById("timer").textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    }
+                }, 1000);
+            } else if (tasks.length === 0) {
+                alert("Agrega una tarea antes de iniciar el temporizador.");
+            }
+        }
+
+        function completeTask() {
+            if (timerActive) {
+                clearInterval(timer);
+                timerActive = false;
+                timeLeft = 1500;
+                document.getElementById("timer").textContent = "25:00";
+                attackPoints += 10;
+                updatePoints();
+                alert("¡Tarea completada! Ganaste 10 puntos de ataque.");
+                tasks.shift();
+                updateTaskList();
+            }
+        }
+
+        function selectEnemy() {
+            let selected = document.getElementById("enemySelect").value;
+            enemyHealth = enemies[selected].health;
+            document.getElementById("enemyHealth").textContent = enemyHealth;
+            document.getElementById("enemy").src = enemies[selected].image;
+            document.getElementById("battle-screen").style.backgroundImage = `url(${enemies[selected].bg})`;
+            document.getElementById("health-bar-fill").style.width = "100%";
+        }
+
+        function attackEnemy() {
+            if (attackPoints >= 10) {
+                attackPoints -= 10;
+                enemyHealth -= 10;
+                updatePoints();
+                document.getElementById("enemyHealth").textContent = enemyHealth;
+                document.getElementById("health-bar-fill").style.width = (enemyHealth / enemies[document.getElementById("enemySelect").value].health) * 100 + "%";
+
+                if (enemyHealth <= 0) {
+                    document.getElementById("enemy").src = "enemy_dead.gif";
+                    document.getElementById("health-bar-fill").style.width = "0%";
+                    document.getElementById("deathSound").play();
+                    alert("¡Has derrotado al enemigo!");
+                }
+            } else {
+                alert("No tienes suficientes puntos para atacar.");
+            }
+        }
+
+        function updatePoints() {
+            document.getElementById("points").textContent = attackPoints;
+            document.getElementById("points-tasks").textContent = attackPoints;
+            document.getElementById("points-battle").textContent = attackPoints;
+        }
+    </script>
+</body>
+</html>
